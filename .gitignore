@@ -2,3 +2,7 @@
 *.aux
 *.log
 *.out
+__pycache__/
+*.aux
+*.log
+*.out
