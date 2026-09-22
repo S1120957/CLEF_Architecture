@@ -1,5 +1,5 @@
 """
-paper_figures.py
+figures.py
 ================
 Regenerates the three illustrative figures whose content depends on the
 corrected definitions (per-transaction hotness, Algorithm D placement,
