@@ -5,7 +5,6 @@
     pip install -r requirements.txt
     ./run_all.sh            # or run the five scripts in the order listed there
 
-Runtime is about one minute on a laptop (single-threaded Python).
 
 ## What each script produces
 
