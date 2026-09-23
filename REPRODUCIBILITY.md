@@ -1,8 +1,5 @@
 # CLEF: reproducibility package
 
-Everything reported in `main.tex` is produced by the code in this folder
-from one implementation, `clef_core.py`.
-
 ## Run
 
     pip install -r requirements.txt
