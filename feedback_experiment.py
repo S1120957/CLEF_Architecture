@@ -31,7 +31,6 @@ def home16(tx):
 
 
 def make_hotspot(i, rng):
-    """NFT transfer in a collection whose records all live on HOT_SHARD."""
     nft = HOT_SHARD + S_OBJ * rng.randint(0, (1000 - HOT_SHARD) // S_OBJ)
     sender = _sample(SENDER_CUM, rng)
     receiver = rng.randint(0, NUM_ACCOUNTS - 1)
@@ -48,7 +47,6 @@ def block_sequence(seed):
 
 
 def place(txs, homes, mapping, slack):
-    """Algorithm D (clef_core) over object shards; slack=None: strict affinity."""
     if slack is None:
         load = [0] * W
         for h in homes:
