@@ -1,4 +1,3 @@
-"""Check every hard-coded number in main.tex against clef_core."""
 from collections import defaultdict
 from clef_core import *
 import csv
