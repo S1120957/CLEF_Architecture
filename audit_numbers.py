@@ -3,7 +3,6 @@ from clef_core import *
 import csv
 
 def typed_edges(txs):
-    """(kind, cross) counts over the conflict relation used in the paper."""
     c = defaultdict(int); lw = {}; lr = defaultdict(list)
     for j, tx in enumerate(txs):
         for r in tx.reads:
