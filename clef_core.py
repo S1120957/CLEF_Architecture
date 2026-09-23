@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import bisect
 import heapq
 import math
@@ -14,8 +13,7 @@ NUM_SHARDS = 4
 NUM_WORKERS = 4
 NUM_ACCOUNTS = 10_000
 NUM_RESOURCES = 1_000
-SENTINEL = 1_000_000_000      # read-only resource that nothing writes
-
+SENTINEL = 1_000_000_000      
 
 def shard_of(r: int) -> int:
     return r % NUM_SHARDS
@@ -182,18 +180,10 @@ def metrics(txs: Sequence[Tx]) -> dict:
 
 
 def shard_switches(txs: Sequence[Tx]) -> int:
-    """Adjacent positions whose home shards differ (shard contiguity)."""
     return sum(1 for a, b in zip(txs, txs[1:]) if a.home != b.home)
 
 
 def rmw_lower_bound(txs: Sequence[Tx]) -> Tuple[int, int]:
-    """
-    Proposition 2. A resource r is pure read-modify-write (pure-RMW) if every
-    transaction that accesses r both reads and writes it. With s_r the number
-    of distinct home shards among its accessors, every permutation of the
-    block produces at least sum_r (s_r - 1) cross-shard messages and at least
-    max_r (s_r - 1) communication rounds.
-    """
     shards: Dict[int, Set[int]] = defaultdict(set)
     pure: Dict[int, bool] = {}
     for tx in txs:
@@ -207,7 +197,6 @@ def rmw_lower_bound(txs: Sequence[Tx]) -> Tuple[int, int]:
 
 
 def typed_edge_counts(txs):
-    """Counts of conflict edges by (kind, is_cross_shard), kind in RAW/WAW/WAR."""
     c = defaultdict(int)
     lw: Dict[int, int] = {}
     lr: Dict[int, List[int]] = defaultdict(list)
@@ -228,12 +217,6 @@ def typed_edge_counts(txs):
 
 
 def conflict_graph(txs: Sequence[Tx]):
-    """
-    Returns (preds, succ). Only the last writer and the readers since the
-    last write are linked; every other conflicting pair is ordered
-    transitively, so linear extensions of this graph are exactly the
-    conflict-equivalent orderings of the block. |edges| <= 2 n k.
-    """
     n = len(txs)
     preds: List[Set[int]] = [set() for _ in range(n)]
     last_writer: Dict[int, int] = {}
@@ -284,12 +267,6 @@ def order_shard_grouped(txs):
 
 
 class SlidingWindowHotness:
-    """
-    eta(r) = fraction of the last W transactions that access r.
-    Per-transaction (not per-access) frequency: with per-access counting a
-    resource touched by every transaction scores only 1/k, so thresholds
-    such as 0.7 could never be reached by transactions with k >= 2 accesses.
-    """
 
     def __init__(self, window=1000):
         self.window = window
@@ -316,11 +293,7 @@ class SlidingWindowHotness:
 
 
 def algorithm_B(txs, window=1000, tau_h=0.7, tau_e=0.9):
-    """
-    Detect hot/extreme resources and move avoidable cross-shard readers of
-    extreme resources in front of the first writer (Model B).
-    Returns (order, hot, extreme, relocated, scores).
-    """
+
     det = SlidingWindowHotness(window)
     for tx in txs:
         det.observe(tx)
@@ -347,11 +320,6 @@ def algorithm_B(txs, window=1000, tau_h=0.7, tau_e=0.9):
 
 
 def algorithm_A(txs, hot: Optional[Set[int]] = None, max_gas=None, relax=3):
-    """
-    Avoidable readers of hot resources first, then the remaining
-    transactions stably sorted by home shard, within a gas budget.
-    Returns (block, n_avoidable).
-    """
     hot = hot or set()
     avoidable, rest = [], []
     for tx in txs:
@@ -383,13 +351,6 @@ def algorithm_A(txs, hot: Optional[Set[int]] = None, max_gas=None, relax=3):
 
 
 def algorithm_C(txs):
-    """
-    Linear extension of the full conflict graph, extracted with a min-heap
-    keyed on (home shard, cross-shard depth, hot-avoidability, index).
-    Successor lists make the main loop O(n log n + n k).
-    By Proposition 1 the output has the same reads-from relation as the
-    input, hence identical messages, rounds and frontier.
-    """
     n = len(txs)
     if n == 0:
         return []
@@ -435,14 +396,7 @@ def algorithm_C(txs):
 
 def algorithm_D(txs, n_workers=NUM_WORKERS, preference=None, slack=1.2,
                 homes=None):
-    """
-    Capacity rule: each worker may take at most slack x the block's mean load.
-    A transaction goes to the worker hosting its home shard unless that would
-    exceed the capacity; otherwise it goes to the least-loaded worker. Remote
-    placements are therefore only genuine overflow, independent of the order
-    in which the block is scanned. Returns (assignment, worker loads).
-    O(n log w). `homes` overrides tx.home (used with finer object shards).
-    """
+
     homes = homes if homes is not None else [tx.home for tx in txs]
     preference = preference or {s: s % n_workers for s in set(homes)}
     cap = slack * sum(tx.gas for tx in txs) / n_workers
@@ -469,7 +423,6 @@ def coefficient_of_variation(values) -> float:
 
 
 def mapping_loads(shard_loads, mapping, n_workers):
-    """Worker loads that strict shard affinity would produce under mapping."""
     L = [0] * n_workers
     for s, l in shard_loads.items():
         L[mapping[s]] += l
@@ -478,15 +431,6 @@ def mapping_loads(shard_loads, mapping, n_workers):
 
 def algorithm_E(shard_loads, mapping, n_workers=NUM_WORKERS, delta=0.20,
                 max_moves=4):
-    """
-    Adaptive shard rebalancing (corrected rule).
-    Input: per-shard loads measured on the last block and the current
-    shard-to-worker mapping. While CV of the mapping-induced loads is at
-    least delta, move from the most loaded worker the largest shard whose
-    load is below the load gap to the least loaded worker. Each move
-    strictly lowers the sum of squared worker loads, so the loop
-    terminates; at most max_moves migrations per block. O(m (S + w)).
-    """
     mapping = dict(mapping)
     L = mapping_loads(shard_loads, mapping, n_workers)
     ops = []
@@ -510,8 +454,6 @@ def algorithm_E(shard_loads, mapping, n_workers=NUM_WORKERS, delta=0.20,
 
 def algorithm_E_original(worker_loads, shard_loads, mapping, delta=0.20,
                          max_iter=20):
-    """Rule as first specified: move the heaviest shard to the lightest
-    worker until CV(worker load) < delta. Kept for comparison."""
     current, s_loads, mapping = list(worker_loads), dict(shard_loads), dict(mapping)
     ops = []
     for _ in range(max_iter):
@@ -535,14 +477,6 @@ W_DEFAULT = dict(p=0.25, s=0.25, c=0.20, l=0.20, h=0.10)
 
 
 def algorithm_F(txs, assign, n_workers=NUM_WORKERS, weights=None, m=None):
-    """
-    G(B) = w_p P + w_s (1 - S/n) + w_c (1 - C/n) + w_l L + w_h H,
-    every component clipped to [0, 1].
-      P = fraction of transactions with no RAW predecessor
-      S = communication rounds, C = cross-shard messages
-      L = 1 - CV(worker load)
-      H = 1 - (cross-shard RAW edges into maximum-depth txs) / (RAW edges)
-    """
     w = weights or W_DEFAULT
     n = len(txs)
     if n == 0:
@@ -565,12 +499,6 @@ def algorithm_F(txs, assign, n_workers=NUM_WORKERS, weights=None, m=None):
 
 
 def algorithm_G(txs, params=None, state=None, guard=False):
-    """
-    B -> A -> C -> D -> F, with E producing the shard-to-worker preference
-    for the next block (inter-block feedback). With guard=True the arrival
-    order is committed instead whenever it produces fewer cross-shard
-    messages (ties broken by fewer rounds). Returns a plan dictionary.
-    """
     p = dict(window=1000, tau_h=0.7, tau_e=0.9, max_gas=None, relax=3,
              delta=0.20, n_workers=NUM_WORKERS)
     p.update(params or {})
@@ -646,8 +574,6 @@ def toy_case(c):
 
 
 def _tile(c, n, offset=10_000):
-    """Disjoint copies of a toy template; offset is a multiple of NUM_SHARDS
-    so every copy keeps the template's shard assignment."""
     rows = TOY_TEMPLATES[c]
     out, copy = [], 0
     while len(out) < n:
@@ -661,7 +587,6 @@ def _tile(c, n, offset=10_000):
 
 
 def scaled_case(c, n):
-    """Cases 0,1,2,6,8 generalise parametrically; 3,4,5,7 are tiled."""
     if c == 0:
         return [Tx(i, [i + 1], [i + 2], load_type="case0") for i in range(n)]
     if c == 1:
@@ -688,7 +613,6 @@ def scaled_case(c, n):
 
 
 def case6_closed_form(n):
-    """Naive messages and rounds of scaled Case 6 without simulation."""
     counts = [len(range(s, n, NUM_SHARDS)) for s in range(NUM_SHARDS)]
     same = sum(c * (c - 1) // 2 for c in counts)
     return n * (n - 1) // 2 - same, n - 1
