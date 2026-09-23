@@ -1,22 +1,3 @@
-"""
-clef_core.py
-============
-Canonical implementation of the CLEF metrics and Algorithms A-G.
-Every number and figure in the paper is produced from this module.
-
-Complexity (n = block size, k = average read/write-set size, w = workers):
-    metrics / reads-from scan ....... O(n k)
-    conflict graph .................. O(n k) time, at most 2 n k edges
-    Algorithm A (shard-affinity) .... O(n log n)
-    Algorithm B (hot detection) ..... O(n k)
-    Algorithm C (Model-A scheduler) . O(n log n + n k)   (successor lists)
-    Algorithm D (worker placement) .. O(n log w)
-    Algorithm E (rebalancing) ....... O(S^2 log S), S = shards
-    Algorithm F (goodness) .......... O(n k)
-These bounds assume bounded k. Structural Cases 6 and 8 violate that
-assumption on purpose (k grows with n).
-"""
-
 from __future__ import annotations
 
 import bisect
@@ -62,10 +43,6 @@ class Tx:
                 f"W={self.writes} @S{self.home}")
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Workload generators (identical distributions to testCase_algorithms/shared.py,
-# sampled with bisect so a 10,000-transaction block is cheap to generate)
-# ─────────────────────────────────────────────────────────────────────────
 
 def _normalise(w):
     s = sum(w)
@@ -150,10 +127,6 @@ def generate_block(n, workload, seed):
     gen = GENERATORS[workload]
     return [gen(i, rng) for i in range(n)]
 
-
-# ─────────────────────────────────────────────────────────────────────────
-# Metrics: one left-to-right pass over the reads-from relation
-# ─────────────────────────────────────────────────────────────────────────
 
 def reads_from_scan(txs: Sequence[Tx]):
     """
@@ -253,9 +226,6 @@ def typed_edge_counts(txs):
             lr[r].append(j)
     return c
 
-# ─────────────────────────────────────────────────────────────────────────
-# Full conflict graph (RAW, WAW, WAR on every resource)
-# ─────────────────────────────────────────────────────────────────────────
 
 def conflict_graph(txs: Sequence[Tx]):
     """
@@ -300,9 +270,6 @@ def is_linear_extension(original: Sequence[Tx], ordered: Sequence[Tx]) -> bool:
                for j, p in enumerate(preds) for i in p)
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Baselines
-# ─────────────────────────────────────────────────────────────────────────
 
 def order_naive(txs):
     return list(txs)
@@ -315,10 +282,6 @@ def order_shard_grouped(txs):
         buckets[tx.home].append(tx)
     return [tx for b in buckets for tx in b]
 
-
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm B: hot-resource detection (per-transaction frequency)
-# ─────────────────────────────────────────────────────────────────────────
 
 class SlidingWindowHotness:
     """
@@ -382,9 +345,6 @@ def algorithm_B(txs, window=1000, tau_h=0.7, tau_e=0.9):
     return order, hot, extreme, relocated, scores
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm A: shard-aware block construction (Model B)
-# ─────────────────────────────────────────────────────────────────────────
 
 def algorithm_A(txs, hot: Optional[Set[int]] = None, max_gas=None, relax=3):
     """
@@ -421,10 +381,6 @@ def algorithm_A(txs, hot: Optional[Set[int]] = None, max_gas=None, relax=3):
         deferred = still
     return block, len(avoidable)
 
-
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm C: semantics-preserving (Model A) shard-affinity scheduler
-# ─────────────────────────────────────────────────────────────────────────
 
 def algorithm_C(txs):
     """
@@ -477,10 +433,6 @@ def algorithm_C(txs):
     return out
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm D: worker-load-aware placement
-# ─────────────────────────────────────────────────────────────────────────
-
 def algorithm_D(txs, n_workers=NUM_WORKERS, preference=None, slack=1.2,
                 homes=None):
     """
@@ -515,9 +467,6 @@ def coefficient_of_variation(values) -> float:
     return math.sqrt(v) / m
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm E: adaptive shard rebalancing (inter-block)
-# ─────────────────────────────────────────────────────────────────────────
 
 def mapping_loads(shard_loads, mapping, n_workers):
     """Worker loads that strict shard affinity would produce under mapping."""
@@ -581,9 +530,6 @@ def algorithm_E_original(worker_loads, shard_loads, mapping, delta=0.20,
     return mapping, ops, current
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm F: block goodness
-# ─────────────────────────────────────────────────────────────────────────
 
 W_DEFAULT = dict(p=0.25, s=0.25, c=0.20, l=0.20, h=0.10)
 
@@ -617,9 +563,6 @@ def algorithm_F(txs, assign, n_workers=NUM_WORKERS, weights=None, m=None):
     return {"G": G, **comps, "loads": loads}
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Algorithm G: execution-plan generation (the CLEF pipeline, Model B)
-# ─────────────────────────────────────────────────────────────────────────
 
 def algorithm_G(txs, params=None, state=None, guard=False):
     """
@@ -661,9 +604,6 @@ def algorithm_G(txs, params=None, state=None, guard=False):
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Structural cases 0-8: verbatim toy templates and scalable generators
-# ─────────────────────────────────────────────────────────────────────────
 
 def _toy(rows, label):
     return [Tx(i, r, w, load_type=label) for i, (r, w) in rows]
