@@ -127,14 +127,6 @@ def generate_block(n, workload, seed):
 
 
 def reads_from_scan(txs: Sequence[Tx]):
-    """
-    For every read, the source is the last earlier writer of that resource
-    (the reads-from relation). A RAW edge i->j is cross-shard iff
-    S(tx_i) != S(tx_j) (the project's message definition).
-
-    Returns (msgs, depth, raw_edges, cross_dsts, has_raw_pred) where
-    depth[j] = number of cross-shard hops on the longest RAW path into j.
-    """
     last_writer: Dict[int, int] = {}
     n = len(txs)
     depth = [0] * n
