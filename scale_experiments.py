@@ -1,17 +1,3 @@
-"""
-scale_experiments.py
-====================
-Production-scale evaluation of CLEF (n = 10,000) plus a block-size sweep,
-structural cases at scale, and the toy-case summary table.
-
-Run:     python scale_experiments.py
-Outputs: results_*.csv, tab_*.tex, clef_numbers.tex, verification.txt,
-         fig_scale_workloads.png, fig_scale_sweep.png
-
-Every run checks Propositions 1-3 and the reported counts of those checks
-are written to verification.txt.
-"""
-
 import csv
 import math
 import statistics as st
@@ -127,9 +113,6 @@ def pm(rows, key, dec=0):
     return f"{m:.{dec}f}\\,$\\pm$\\,{s:.{dec}f}"
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Experiment 1: five workloads at n = 10,000
-# ─────────────────────────────────────────────────────────────────────────
 
 def experiment_workloads():
     rows = []
@@ -141,9 +124,6 @@ def experiment_workloads():
     return rows
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Experiment 2: block-size sweep
-# ─────────────────────────────────────────────────────────────────────────
 
 def experiment_sweep():
     rows = []
@@ -156,9 +136,6 @@ def experiment_sweep():
     return rows
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Experiment 3: structural cases at scale, and the toy-case table
-# ─────────────────────────────────────────────────────────────────────────
 
 def structural_row(c, b):
     lb, lb_r = rmw_lower_bound(b)
@@ -191,9 +168,6 @@ def experiment_structural():
     return rows, toy
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# LaTeX tables and macros
-# ─────────────────────────────────────────────────────────────────────────
 
 def arrow(a, b, dec=None):
     if dec is None:
@@ -353,10 +327,6 @@ def write_macros(rows, sweep, structural):
                f"{{{sum(r['guard_used'] for r in rows)}}}")
     open("clef_numbers.tex", "w").write("\n".join(out) + "\n")
 
-
-# ─────────────────────────────────────────────────────────────────────────
-# Figures
-# ─────────────────────────────────────────────────────────────────────────
 
 def style(ax):
     ax.set_facecolor("#F8F7F2")
