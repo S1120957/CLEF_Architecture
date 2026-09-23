@@ -1,35 +1,3 @@
-"""
-feedback_experiment.py
-======================
-Multi-block evaluation of the CLEF feedback loop (Monitor: per-shard load
-of the committed block; Plan: Algorithm E; Execute: Algorithm D on the next
-block).
-
-Setting   S = 16 object shards (shard = first written resource mod 16)
-          hosted on w = 4 ExecutionWorkers; initial mapping s -> s mod 4.
-Sequence  60 blocks of n = 2,000 transactions, 5 seeds:
-          blocks  0-19  MIXED
-          blocks 20-39  MIXED with 50% of transactions replaced by a hotspot
-                        NFT collection whose records all live on shard 5
-          blocks 40-59  MIXED
-Policies  Static affinity    every tx on the worker hosting its home shard
-          Balance only       Algorithm D (slack 1.2), mapping never changes
-          Loop, E original   D + E as first specified (post-placement loads,
-                             heaviest shard -> lightest worker)
-          Loop, E corrected  D + E fed with mapping-induced shard loads,
-                             descent move rule, at most 4 migrations/block
-Metrics   remote fraction   txs placed on a worker other than the host of
-                            their home shard (each needs a remote object fetch)
-          imbalance         max / mean worker load after placement
-          migrations        shards moved between blocks
-
-Placement does not change the reads-from relation, so cross-shard messages
-and rounds are identical under all four policies.
-
-Run:    python feedback_experiment.py
-Output: fig_feedback.png, tab_feedback.tex, feedback_numbers.tex
-"""
-
 import random
 import statistics as st
 from collections import defaultdict
